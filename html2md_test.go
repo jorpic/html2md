@@ -14,23 +14,19 @@ func TestText(t *t.T) {
 func TestH1(t *t.T) {
   check(t,
     "<h1>Hello!</h1>",
-`Hello!
-======
-`)
+    "\nHello!\n======\n")
 }
 
 func TestH2(t *t.T) {
   check(t,
     "<h2>Hello!</h2>",
-`Hello!
-------
-`)
+    "\nHello!\n------\n")
 }
 
 func TestH5(t *t.T) {
   check(t,
     "<h5>Hello!</h5>",
-    "##### Hello!\n")
+    "\n##### Hello!\n")
 }
 
 
