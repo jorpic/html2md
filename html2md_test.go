@@ -10,6 +10,34 @@ func TestText(t *t.T) {
 	check(t, "some text", "some text")
 }
 
+func TestText_escape(t *t.T) {
+	check(t, "n\\a ~ *text*", "n\\\\a ~ \\*text\\*")
+}
+
+func TestEmph(t *t.T) {
+	check(t,
+		"<b>bold</b> <s>strikeout</s> <em>emph</em>",
+		"**bold** ~~strikeout~~ *emph*")
+}
+
+func TestEmph_nested(t *t.T) {
+	check(t,
+		"<b>bold & <s>strikeout</s></b> <em><b>em</b>phasis</em>",
+		"**bold & ~~strikeout~~** ***em**phasis*")
+}
+
+func TestEmph_code(t *t.T) {
+	check(t,
+		"<code>~~this *is* code~~</code>",
+		"`~~this *is* code~~`")
+}
+
+func TestP(t *t.T) {
+	check(t,
+		"<p>First paragraph</p><p>Second <span>para</span>graph</p>",
+		"\nFirst paragraph\n\nSecond paragraph\n")
+}
+
 func TestH1(t *t.T) {
 	check(t,
 		"<h1>Hello!</h1>",

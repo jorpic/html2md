@@ -7,6 +7,7 @@ import (
 	"golang.org/x/net/html/atom"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -51,19 +52,33 @@ var textTable = map[atom.Atom]dispatcher{
 	0: {text, nil},
 }
 
+var rawTextTable = map[atom.Atom]dispatcher{
+	0: {rawText, nil},
+}
+
 var textLinkTable = map[atom.Atom]dispatcher{
-	0:      {text, nil},
-	atom.A: {anchor, textTable},
+	0:         {text, nil},
+	atom.A:    {anchor, textTable},
+	atom.B:    {em("**"), textTable},
+	atom.S:    {em("~~"), textTable},
+	atom.Em:   {em("*"), textTable},
+	atom.Span: {em(""), textTable},
 }
 
 var bodyTable = map[atom.Atom]dispatcher{
-	0:       {text, nil},
-	atom.A:  {anchor, textTable},
-	atom.H1: {h1_2("="), textLinkTable},
-	atom.H2: {h1_2("-"), textLinkTable},
-	atom.H3: {h3_5(3), textLinkTable},
-	atom.H4: {h3_5(4), textLinkTable},
-	atom.H5: {h3_5(5), textLinkTable},
+	0:         {text, nil},
+	atom.A:    {anchor, textTable},
+	atom.H1:   {h1_2("="), textLinkTable},
+	atom.H2:   {h1_2("-"), textLinkTable},
+	atom.H3:   {h3_5(3), textLinkTable},
+	atom.H4:   {h3_5(4), textLinkTable},
+	atom.H5:   {h3_5(5), textLinkTable},
+	atom.P:    {em("\n"), textLinkTable},
+	atom.Span: {em(""), textLinkTable},
+	atom.B:    {em("**"), textLinkTable},
+	atom.S:    {em("~~"), textLinkTable},
+	atom.Em:   {em("*"), textLinkTable},
+	atom.Code: {em("`"), rawTextTable},
 }
 
 func html2md(r io.Reader, w io.Writer) {
@@ -109,8 +124,26 @@ func dispatch(cxt context) error {
 	return nil
 }
 
+var rxEscapeEmph = regexp.MustCompile("(~~|[\\\\*])")
+
 func text(cxt context) error {
+	txt := cxt.token.Data
+	txt = rxEscapeEmph.ReplaceAllString(txt, "\\$1")
+	return cxt.WriteStrings(txt)
+}
+
+func rawText(cxt context) error {
 	return cxt.WriteStrings(cxt.token.Data)
+}
+
+func em(xx string) parserFunc {
+	return func(cxt context) error {
+		buf, err := goDeeper(&cxt)
+		if err != nil {
+			return err
+		}
+		return cxt.WriteStrings(xx, buf.String(), xx)
+	}
 }
 
 func anchor(cxt context) error {
