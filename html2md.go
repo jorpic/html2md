@@ -1,6 +1,7 @@
 package main
 
 import (
+  "log"
 	"bytes"
 	"fmt"
 	"golang.org/x/net/html"
@@ -15,8 +16,8 @@ func main() {
 }
 
 type context struct {
-	stack     []atom.Atom
 	tokenizer *html.Tokenizer
+	token     html.Token
 	writer    io.Writer
 	tagTable  map[atom.Atom]dispatcher
 }
@@ -30,6 +31,15 @@ func (cxt *context) WriteStrings(ss ...string) error {
 	return nil
 }
 
+func (cxt *context) GetAttr(name string) (string, bool) {
+	for _, attr := range cxt.token.Attr {
+		if attr.Key == name {
+			return attr.Val, true
+		}
+	}
+	return "", false
+}
+
 type parserFunc func(context) error
 
 type dispatcher struct {
@@ -41,11 +51,17 @@ var textTable = map[atom.Atom]dispatcher{
 	0: {text, nil},
 }
 
+var textLinkTable = map[atom.Atom]dispatcher{
+	0: {text, nil},
+	atom.A:  {anchor, textTable},
+}
+
 var bodyTable = map[atom.Atom]dispatcher{
 	0:       {text, nil},
-	atom.H1: {h1, textTable},
-	atom.H2: {h2, textTable},
-	atom.H5: {h5, textTable},
+	atom.A:  {anchor, textTable},
+	atom.H1: {h1, textLinkTable},
+	atom.H2: {h2, textLinkTable},
+	atom.H5: {h5, textLinkTable},
 }
 
 func html2md(r io.Reader, w io.Writer) {
@@ -55,16 +71,19 @@ func html2md(r io.Reader, w io.Writer) {
 		writer:    w,
 		tagTable:  bodyTable}
 
-	for dispatch(cxt) != nil {
+	for dispatch(cxt) == nil {
 	}
 }
 
 func dispatch(cxt context) error {
-	switch cxt.tokenizer.Next() {
+  tt := cxt.tokenizer.Next()
+  cxt.token = cxt.tokenizer.Token()
+  switch tt {
 	case html.ErrorToken:
 		return errEndOfStream // FIXME: check tkz.Err()
 	case html.StartTagToken:
-		tag := cxt.tokenizer.Token().DataAtom
+		tag := cxt.token.DataAtom
+    log.Printf("Tag: %s", tag.String())
 		d, ok := cxt.tagTable[tag]
 		if ok {
 			newCxt := cxt
@@ -84,8 +103,21 @@ func dispatch(cxt context) error {
 }
 
 func text(cxt context) error {
-	_, err := cxt.writer.Write(cxt.tokenizer.Text())
-	return err
+	return cxt.WriteStrings(cxt.token.Data)
+}
+
+func anchor(cxt context) error {
+	href, ok := cxt.GetAttr("href")
+	if !ok {
+		return errSomeError
+	}
+
+	buf, err := goDeeper(&cxt)
+	if err != nil {
+		return err
+	}
+	txt := buf.String()
+	return cxt.WriteStrings("[", txt, "](", href, ")")
 }
 
 func h1(cxt context) error {
@@ -125,3 +157,4 @@ func goDeeper(cxt *context) (*bytes.Buffer, error) {
 }
 
 var errEndOfStream = fmt.Errorf("end of stream")
+var errSomeError = fmt.Errorf("some error")
