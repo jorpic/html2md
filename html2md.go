@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -17,12 +18,15 @@ func main() {
 }
 
 type context struct {
-	parent    atom.Atom
-	level     int
 	tokenizer *html.Tokenizer
 	token     html.Token
 	writer    io.Writer
 	parserMap parserMap
+	parent    atom.Atom
+	lst       struct { // those two are ul/ol related
+		level int
+		order []int // ugly trick to have reference sematics
+	}
 }
 
 func (cxt *context) WriteStrings(ss ...string) error {
@@ -60,7 +64,7 @@ var topHTML = make(parserMap)
 func init() {
 	rawText := parserMap{0: {0, rawText, nil}}
 
-	var formattedText = make(parserMap)
+	formattedText := make(parserMap)
 	formattedTextParsers := []elemParser{
 		{0, text, nil},
 		{atom.B, wrap("**", "**"), formattedText},
@@ -70,22 +74,22 @@ func init() {
 		{atom.Code, wrap("`", "`"), rawText}}
 	fillMap(formattedText, formattedTextParsers)
 
-	var textAndLinks = fillMap(
+	textAndLinks := fillMap(
 		make(parserMap),
 		append(formattedTextParsers,
 			elemParser{atom.A, anchor, formattedText}))
 
-	var textAndLinksAndLists = make(parserMap)
-	var listBullets = make(parserMap)
+	textAndLinksAndLists := make(parserMap)
+	listBullets := make(parserMap)
 	fillMap(textAndLinksAndLists,
 		append(formattedTextParsers,
 			elemParser{atom.A, anchor, formattedText},
 			elemParser{atom.Ul, list, listBullets},
 			elemParser{atom.Ol, list, listBullets}))
-	fillMap(listBullets,
-		append(formattedTextParsers,
-			elemParser{atom.A, anchor, formattedText},
-			elemParser{atom.Li, listItem, textAndLinksAndLists}))
+	fillMap(listBullets, []elemParser{
+		elemParser{atom.Ul, list, listBullets},
+		elemParser{atom.Ol, list, listBullets},
+		elemParser{atom.Li, listItem, textAndLinksAndLists}})
 
 	topHTMLParsers := append(formattedTextParsers,
 		elemParser{atom.Script, skip, nil},
@@ -156,10 +160,13 @@ func skip(cxt context) error {
 	return err
 }
 
+// NB: preserve `nbsp`
+var rxTrimSpace = regexp.MustCompile("(?m)[ \\t\\r\\n\\v]+")
 var rxEscapeEmph = regexp.MustCompile("(~~|[\\\\*])")
 
 func text(cxt context) error {
 	txt := cxt.token.Data
+	txt = rxTrimSpace.ReplaceAllLiteralString(txt, " ")
 	txt = rxEscapeEmph.ReplaceAllString(txt, "\\$1")
 	return cxt.WriteStrings(txt)
 }
@@ -179,25 +186,27 @@ func wrap(xx string, yy string) parserFunc {
 }
 
 func anchor(cxt context) error {
-	href, ok := cxt.GetAttr("href")
+	href, ok := cxt.GetAttr("href") // FIXME: inline?
 	if !ok {
 		return nil
 	}
-
-	buf, err := goDeeper(&cxt)
-	if err != nil {
-		return err
-	}
-	txt := buf.String()
-	return cxt.WriteStrings("[", txt, "](", href, ")")
+	return wrap("[", "]("+href+")")(cxt)
 }
 
 func list(cxt context) error {
-	return nil
+	cxt.lst.level++
+	cxt.lst.order = []int{0}
+	return wrap("", "")(cxt)
 }
 
 func listItem(cxt context) error {
-	return nil
+	cxt.lst.order[0]++
+	indent := strings.Repeat(" ", cxt.lst.level*2)
+	if cxt.parent == atom.Ul {
+		return wrap("\n"+indent+"- ", "")(cxt)
+	}
+	order := strconv.Itoa(cxt.lst.order[0]) + ". "
+	return wrap("\n"+indent+order, "")(cxt)
 }
 
 func h1_2(subChar string) parserFunc {

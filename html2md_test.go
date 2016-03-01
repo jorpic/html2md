@@ -46,9 +46,8 @@ func TestUl(t *t.T) {
 </ul>
 `,
 		`
-- first **item**
-- second item with a [link](http://example.com)
-`)
+  - first **item**
+  - second item with a [link](http://example.com) `)
 }
 
 func TestOl(t *t.T) {
@@ -59,9 +58,8 @@ func TestOl(t *t.T) {
 </ol>
 `,
 		`
-1. first **item**
-2. second item with a [link](http://example.com)
-`)
+  1. first **item**
+  2. second item with a [link](http://example.com) `)
 }
 
 func TestOl_Ul(t *t.T) {
@@ -79,14 +77,13 @@ func TestOl_Ul(t *t.T) {
 </ol>
 `,
 		`
-1. first **item**
-2. second
-  - sub one
-  - sub two
-3. third item
-  - with a [link](http://example.com)
-  - and a profit
-`)
+  1. first **item**
+  2. second
+    - sub one
+    - sub two
+  3. third item 
+    - with a [link](http://example.com)
+    - and a profit  `)
 }
 
 func TestH1(t *t.T) {
