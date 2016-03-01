@@ -18,6 +18,7 @@ func main() {
 
 type context struct {
 	parent    atom.Atom
+	level     int
 	tokenizer *html.Tokenizer
 	token     html.Token
 	writer    io.Writer
@@ -51,13 +52,10 @@ type elemParser struct {
 	parserMap parserMap
 }
 
+// topHTML is like a BNF grammar of accepted document format.
+// It is not a tree but a graph, hence it is initialized in `init()` is some
+// obscure manner.
 var topHTML = make(parserMap)
-
-func fillMap(m parserMap, xs []elemParser) {
-	for _, x := range xs {
-		m[x.tag] = x
-	}
-}
 
 func init() {
 	rawText := parserMap{0: {0, rawText, nil}}
@@ -69,27 +67,46 @@ func init() {
 		{atom.S, em("~~"), formattedText},
 		{atom.Em, em("*"), formattedText},
 		{atom.Span, em(""), formattedText},
-		{atom.Code, em("`"), rawText},
-	}
+		{atom.Code, em("`"), rawText}}
 	fillMap(formattedText, formattedTextParsers)
 
-	var textAndLinks = make(parserMap)
-	textAndLinksParsers := append(formattedTextParsers,
-		elemParser{atom.A, anchor, formattedText},
-	)
-	fillMap(textAndLinks, textAndLinksParsers)
+	var textAndLinks = fillMap(
+		make(parserMap),
+		append(formattedTextParsers,
+			elemParser{atom.A, anchor, formattedText}))
 
-	topHTMLParsers := append(textAndLinksParsers,
+	var textAndLinksAndLists = make(parserMap)
+	var listBullets = make(parserMap)
+	fillMap(textAndLinksAndLists,
+		append(formattedTextParsers,
+			elemParser{atom.A, anchor, formattedText},
+			elemParser{atom.Ul, list, listBullets},
+			elemParser{atom.Ol, list, listBullets}))
+	fillMap(listBullets,
+		append(formattedTextParsers,
+			elemParser{atom.A, anchor, formattedText},
+			elemParser{atom.Li, listItem, textAndLinksAndLists}))
+
+	topHTMLParsers := append(formattedTextParsers,
 		elemParser{atom.Script, skip, nil},
 		elemParser{atom.Head, skip, nil},
+		elemParser{atom.A, anchor, formattedText},
 		elemParser{atom.H1, h1_2("="), textAndLinks},
 		elemParser{atom.H2, h1_2("-"), textAndLinks},
 		elemParser{atom.H3, h3_5(3), textAndLinks},
 		elemParser{atom.H4, h3_5(4), textAndLinks},
 		elemParser{atom.H5, h3_5(5), textAndLinks},
-		elemParser{atom.P, em("\n"), textAndLinks},
-	)
+		elemParser{atom.P, em("\n"), textAndLinksAndLists},
+		elemParser{atom.Ul, list, listBullets},
+		elemParser{atom.Ol, list, listBullets})
 	fillMap(topHTML, topHTMLParsers)
+}
+
+func fillMap(m parserMap, xs []elemParser) parserMap {
+	for _, x := range xs {
+		m[x.tag] = x
+	}
+	return m
 }
 
 func html2md(r io.Reader, w io.Writer) {
@@ -173,6 +190,14 @@ func anchor(cxt context) error {
 	}
 	txt := buf.String()
 	return cxt.WriteStrings("[", txt, "](", href, ")")
+}
+
+func list(cxt context) error {
+	return nil
+}
+
+func listItem(cxt context) error {
+	return nil
 }
 
 func h1_2(subChar string) parserFunc {

@@ -38,6 +38,57 @@ func TestP(t *t.T) {
 		"\nFirst paragraph\n\nSecond paragraph\n")
 }
 
+func TestUl(t *t.T) {
+	check(t,
+		`<ul>
+  <li>first <b>item</b></li>
+  <li>second item with a <a href="http://example.com">link</a></li>
+</ul>
+`,
+		`
+- first **item**
+- second item with a [link](http://example.com)
+`)
+}
+
+func TestOl(t *t.T) {
+	check(t,
+		`<ol>
+  <li>first <b>item</b></li>
+  <li>second item with a <a href="http://example.com">link</a></li>
+</ol>
+`,
+		`
+1. first **item**
+2. second item with a [link](http://example.com)
+`)
+}
+
+func TestOl_Ul(t *t.T) {
+	check(t,
+		`<ol>
+  <li>first <b>item</b></li>
+  <li>second</li>
+  <ul><li>sub one</li><li>sub two</li></ul>
+  <li>third item
+    <ul>
+      <li>with a <a href="http://example.com">link</a></li>
+      <li>and a profit</li>
+    </ul>
+  </li>
+</ol>
+`,
+		`
+1. first **item**
+2. second
+  - sub one
+  - sub two
+3. third item
+  - with a [link](http://example.com)
+  - and a profit
+`)
+}
+
 func TestH1(t *t.T) {
 	check(t,
 		"<h1>Hello!</h1>",
