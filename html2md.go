@@ -1,12 +1,12 @@
 package main
 
 import (
-  "log"
 	"bytes"
 	"fmt"
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 	"io"
+	"log"
 	"os"
 	"strings"
 )
@@ -52,16 +52,18 @@ var textTable = map[atom.Atom]dispatcher{
 }
 
 var textLinkTable = map[atom.Atom]dispatcher{
-	0: {text, nil},
-	atom.A:  {anchor, textTable},
+	0:      {text, nil},
+	atom.A: {anchor, textTable},
 }
 
 var bodyTable = map[atom.Atom]dispatcher{
 	0:       {text, nil},
 	atom.A:  {anchor, textTable},
-	atom.H1: {h1, textLinkTable},
-	atom.H2: {h2, textLinkTable},
-	atom.H5: {h5, textLinkTable},
+	atom.H1: {h1_2("="), textLinkTable},
+	atom.H2: {h1_2("-"), textLinkTable},
+	atom.H3: {h3_5(3), textLinkTable},
+	atom.H4: {h3_5(4), textLinkTable},
+	atom.H5: {h3_5(5), textLinkTable},
 }
 
 func html2md(r io.Reader, w io.Writer) {
@@ -76,14 +78,14 @@ func html2md(r io.Reader, w io.Writer) {
 }
 
 func dispatch(cxt context) error {
-  tt := cxt.tokenizer.Next()
-  cxt.token = cxt.tokenizer.Token()
-  switch tt {
+	tt := cxt.tokenizer.Next()
+	cxt.token = cxt.tokenizer.Token()
+	switch tt {
 	case html.ErrorToken:
 		return errEndOfStream // FIXME: check tkz.Err()
 	case html.StartTagToken:
 		tag := cxt.token.DataAtom
-    log.Printf("Tag: %s", tag.String())
+		log.Printf("Tag: %s", tag.String())
 		d, ok := cxt.tagTable[tag]
 		if ok {
 			newCxt := cxt
@@ -120,33 +122,28 @@ func anchor(cxt context) error {
 	return cxt.WriteStrings("[", txt, "](", href, ")")
 }
 
-func h1(cxt context) error {
-	buf, err := goDeeper(&cxt)
-	if err != nil {
-		return err
+func h1_2(subChar string) parserFunc {
+	return func(cxt context) error {
+		buf, err := goDeeper(&cxt)
+		if err != nil {
+			return err
+		}
+		txt := buf.String()
+		sub := strings.Repeat(subChar, len(txt))
+		return cxt.WriteStrings("\n", txt, "\n", sub, "\n")
 	}
-	txt := buf.String()
-	sub := strings.Repeat("=", len(txt))
-	return cxt.WriteStrings("\n", txt, "\n", sub, "\n")
 }
 
-func h2(cxt context) error {
-	buf, err := goDeeper(&cxt)
-	if err != nil {
-		return err
+func h3_5(level int) parserFunc {
+	return func(cxt context) error {
+		buf, err := goDeeper(&cxt)
+		if err != nil {
+			return err
+		}
+		txt := buf.String()
+		pre := strings.Repeat("#", level)
+		return cxt.WriteStrings("\n", pre, " ", txt, "\n")
 	}
-	txt := buf.String()
-	sub := strings.Repeat("-", len(txt))
-	return cxt.WriteStrings("\n", txt, "\n", sub, "\n")
-}
-
-func h5(cxt context) error {
-	buf, err := goDeeper(&cxt)
-	if err != nil {
-		return err
-	}
-	txt := buf.String()
-	return cxt.WriteStrings("\n##### ", txt, "\n")
 }
 
 func goDeeper(cxt *context) (*bytes.Buffer, error) {
