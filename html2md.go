@@ -6,7 +6,6 @@ import (
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 	"io"
-	"log"
 	"os"
 	"strings"
 )
@@ -16,6 +15,7 @@ func main() {
 }
 
 type context struct {
+	parent    atom.Atom
 	tokenizer *html.Tokenizer
 	token     html.Token
 	writer    io.Writer
@@ -85,7 +85,6 @@ func dispatch(cxt context) error {
 		return errEndOfStream // FIXME: check tkz.Err()
 	case html.StartTagToken:
 		tag := cxt.token.DataAtom
-		log.Printf("Tag: %s", tag.String())
 		d, ok := cxt.tagTable[tag]
 		if ok {
 			newCxt := cxt
@@ -93,12 +92,18 @@ func dispatch(cxt context) error {
 			return d.parser(newCxt)
 		}
 	case html.TextToken:
-		d := cxt.tagTable[0]
-		newCxt := cxt
-		newCxt.tagTable = d.nestedTable
-		d.parser(newCxt)
+		d, ok := cxt.tagTable[0]
+		if ok {
+			newCxt := cxt
+			newCxt.tagTable = d.nestedTable
+			return d.parser(newCxt)
+		}
+	case html.EndTagToken:
+		if cxt.token.DataAtom == cxt.parent {
+			return okEndOfContext
+		}
 	case html.SelfClosingTagToken:
-		// br
+		// FIXME: br
 	default:
 	}
 	return nil
@@ -146,12 +151,23 @@ func h3_5(level int) parserFunc {
 	}
 }
 
+// FIXME: goDeeper copies `cxt` just before it is copeid in `dispatch`
 func goDeeper(cxt *context) (*bytes.Buffer, error) {
 	buf := new(bytes.Buffer)
 	newCxt := *cxt
 	newCxt.writer = buf
-	return buf, dispatch(newCxt)
+	newCxt.parent = cxt.token.DataAtom
+	for {
+		err := dispatch(newCxt)
+		if err == okEndOfContext {
+			return buf, nil
+		}
+		if err != nil {
+			return buf, err
+		}
+	}
 }
 
 var errEndOfStream = fmt.Errorf("end of stream")
 var errSomeError = fmt.Errorf("some error")
+var okEndOfContext = fmt.Errorf("end of context")
