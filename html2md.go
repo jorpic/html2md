@@ -63,11 +63,11 @@ func init() {
 	var formattedText = make(parserMap)
 	formattedTextParsers := []elemParser{
 		{0, text, nil},
-		{atom.B, em("**"), formattedText},
-		{atom.S, em("~~"), formattedText},
-		{atom.Em, em("*"), formattedText},
-		{atom.Span, em(""), formattedText},
-		{atom.Code, em("`"), rawText}}
+		{atom.B, wrap("**", "**"), formattedText},
+		{atom.S, wrap("~~", "~~"), formattedText},
+		{atom.Em, wrap("*", "*"), formattedText},
+		{atom.Span, wrap("", ""), formattedText},
+		{atom.Code, wrap("`", "`"), rawText}}
 	fillMap(formattedText, formattedTextParsers)
 
 	var textAndLinks = fillMap(
@@ -93,10 +93,10 @@ func init() {
 		elemParser{atom.A, anchor, formattedText},
 		elemParser{atom.H1, h1_2("="), textAndLinks},
 		elemParser{atom.H2, h1_2("-"), textAndLinks},
-		elemParser{atom.H3, h3_5(3), textAndLinks},
-		elemParser{atom.H4, h3_5(4), textAndLinks},
-		elemParser{atom.H5, h3_5(5), textAndLinks},
-		elemParser{atom.P, em("\n"), textAndLinksAndLists},
+		elemParser{atom.H3, wrap("\n### ", "\n"), textAndLinks},
+		elemParser{atom.H4, wrap("\n#### ", "\n"), textAndLinks},
+		elemParser{atom.H5, wrap("\n##### ", "\n"), textAndLinks},
+		elemParser{atom.P, wrap("\n", "\n"), textAndLinksAndLists},
 		elemParser{atom.Ul, list, listBullets},
 		elemParser{atom.Ol, list, listBullets})
 	fillMap(topHTML, topHTMLParsers)
@@ -168,13 +168,13 @@ func rawText(cxt context) error {
 	return cxt.WriteStrings(cxt.token.Data)
 }
 
-func em(xx string) parserFunc {
+func wrap(xx string, yy string) parserFunc {
 	return func(cxt context) error {
 		buf, err := goDeeper(&cxt)
 		if err != nil {
 			return err
 		}
-		return cxt.WriteStrings(xx, buf.String(), xx)
+		return cxt.WriteStrings(xx, buf.String(), yy)
 	}
 }
 
@@ -209,18 +209,6 @@ func h1_2(subChar string) parserFunc {
 		txt := buf.String()
 		sub := strings.Repeat(subChar, len(txt))
 		return cxt.WriteStrings("\n", txt, "\n", sub, "\n")
-	}
-}
-
-func h3_5(level int) parserFunc {
-	return func(cxt context) error {
-		buf, err := goDeeper(&cxt)
-		if err != nil {
-			return err
-		}
-		txt := buf.String()
-		pre := strings.Repeat("#", level)
-		return cxt.WriteStrings("\n", pre, " ", txt, "\n")
 	}
 }
 
