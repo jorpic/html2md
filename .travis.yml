@@ -1,0 +1,5 @@
+language: go
+install:
+  - go get golang.org/x/net/html
+script:
+  - go test

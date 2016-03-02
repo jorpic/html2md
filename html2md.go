@@ -99,9 +99,9 @@ func init() {
 		{atom.A, anchor, formattedText},
 		{atom.H1, h1_2("="), textAndLinks},
 		{atom.H2, h1_2("-"), textAndLinks},
-		{atom.H3, wrap("\n### ", "\n"), textAndLinks},
-		{atom.H4, wrap("\n#### ", "\n"), textAndLinks},
-		{atom.H5, wrap("\n##### ", "\n"), textAndLinks},
+		{atom.H3, wrap("\n\n### ", "\n"), textAndLinks},
+		{atom.H4, wrap("\n\n#### ", "\n"), textAndLinks},
+		{atom.H5, wrap("\n\n##### ", "\n"), textAndLinks},
 		{atom.P, wrap("\n", "\n"), textAndLinksAndLists},
 		{atom.Pre, wrap("\n```", "```\n"), rawText},
 		{atom.Ul, list, listBullets},
@@ -220,7 +220,7 @@ func h1_2(subChar string) parserFunc {
 		}
 		txt := buf.String()
 		sub := strings.Repeat(subChar, len(txt))
-		return cxt.WriteStrings("\n", txt, "\n", sub, "\n")
+		return cxt.WriteStrings("\n\n", txt, "\n", sub, "\n")
 	}
 }
 
