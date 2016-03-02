@@ -69,9 +69,11 @@ func init() {
 		{0, text, nil},
 		{atom.B, wrap("**", "**"), formattedText},
 		{atom.S, wrap("~~", "~~"), formattedText},
+		{atom.I, wrap("_", "_"), formattedText},
 		{atom.Em, wrap("*", "*"), formattedText},
 		{atom.Span, wrap("", ""), formattedText},
-		{atom.Code, wrap("`", "`"), rawText}}
+		{atom.Code, wrap("`", "`"), rawText},
+		{atom.Pre, wrap("\n```", "\n```"), rawText}}
 	fillMap(formattedText, formattedTextParsers)
 
 	textAndLinks := fillMap(
@@ -101,6 +103,7 @@ func init() {
 		elemParser{atom.H4, wrap("\n#### ", "\n"), textAndLinks},
 		elemParser{atom.H5, wrap("\n##### ", "\n"), textAndLinks},
 		elemParser{atom.P, wrap("\n", "\n"), textAndLinksAndLists},
+		elemParser{atom.Pre, wrap("\n```", "```\n"), rawText},
 		elemParser{atom.Ul, list, listBullets},
 		elemParser{atom.Ol, list, listBullets})
 	fillMap(topHTML, topHTMLParsers)
@@ -146,7 +149,7 @@ func dispatch(cxt context) error {
 		}
 	case html.EndTagToken:
 		if cxt.token.DataAtom == cxt.parent {
-			return okEndOfContext
+			return errEndOfContext
 		}
 	case html.SelfClosingTagToken:
 		// FIXME: br
@@ -162,7 +165,7 @@ func skip(cxt context) error {
 
 // NB: preserve `nbsp`
 var rxTrimSpace = regexp.MustCompile("(?m)[ \\t\\r\\n\\v]+")
-var rxEscapeEmph = regexp.MustCompile("(~~|[\\\\*])")
+var rxEscapeEmph = regexp.MustCompile("(~~|[\\\\*_])")
 
 func text(cxt context) error {
 	txt := cxt.token.Data
@@ -221,7 +224,7 @@ func h1_2(subChar string) parserFunc {
 	}
 }
 
-// FIXME: goDeeper copies `cxt` just before it is copeid in `dispatch`
+// FIXME: `goDeeper` copies `cxt` just before it is copeid in `dispatch`
 func goDeeper(cxt *context) (*bytes.Buffer, error) {
 	buf := new(bytes.Buffer)
 	newCxt := *cxt
@@ -229,7 +232,7 @@ func goDeeper(cxt *context) (*bytes.Buffer, error) {
 	newCxt.parent = cxt.token.DataAtom
 	for {
 		err := dispatch(newCxt)
-		if err == okEndOfContext {
+		if err == errEndOfContext {
 			return buf, nil
 		}
 		if err != nil {
@@ -241,4 +244,4 @@ func goDeeper(cxt *context) (*bytes.Buffer, error) {
 
 var errEndOfStream = fmt.Errorf("end of stream")
 var errSomeError = fmt.Errorf("some error")
-var okEndOfContext = fmt.Errorf("end of context")
+var errEndOfContext = fmt.Errorf("end of context")
