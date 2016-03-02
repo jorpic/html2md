@@ -139,6 +139,6 @@ func check(t *t.T, in, out string) {
 	html2md(strings.NewReader(in), w)
 	res := w.String()
 	if out != res {
-		t.Errorf("\n%s\n != \n%s", res, out)
+		t.Errorf("\n%s\n!=\n%s", res, out)
 	}
 }

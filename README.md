@@ -1,11 +1,11 @@
 
 [![build status](https://travis-ci.org/jorpic/html2md.svg)](https://travis-ci.org/jorpic/html2md)
 
-**html2md** is a tool to convert some unspecified subset of HTML
+*html2md* is a tool to convert some unspecified subset of HTML
 to some unspecified subset of Markdown.
 
-It is small (~300 LOC) and easily extensible.  
-Due to it's streaming nature **html2md** can cope with huge HTML files.
+It is small (~300 LOC) and easily extendable.  
+Due to it's streaming nature *html2md* can cope with huge HTML files.
 
 
 Usage
@@ -22,7 +22,7 @@ Now you can use it like this:
 ```
 curl -s -L "https://en.wikipedia.org/wiki/Special:Random" | html2md
 curl -s -L http://membrana.ru | iconv -f windows-1251 | html2md
-curl -s -L https://golang.org/doc |  html2md
+curl -s -L https://golang.org/doc | html2md
 ```
 
 
@@ -35,9 +35,17 @@ responsibility to ensure that the provided HTML is well-formed and UTF-8 encoded
 Just don't be evil and assume "Garbage In Garbage Out":
 some corner cases or malformed HTML may lead to ridiculous results.
 
-The project is in pre-alpha state and still work in progress, please don't
+The project is in **pre-alpha** state and still work in progress, please don't
 hesitate to [report](https://github.com/jorpic/html2md/issues/new) bugs and feature requests.
 
+
+TODO
+----
+
+  - more HTML elements (like dl/dd, tables)
+  - collect links at the end of document
+  - `--verbose` mode to debug unexpected converter behaviour
+  - markdown beautifier (split long lines, reduce whitespace)
 
 
 The MIT License

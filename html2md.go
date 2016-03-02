@@ -17,18 +17,76 @@ func main() {
 	html2md(os.Stdin, os.Stdout)
 }
 
-type context struct {
-	tokenizer *html.Tokenizer
-	token     html.Token
-	writer    io.Writer
-	parserMap parserMap
-	parent    atom.Atom
-	lst       struct { // those two are ul/ol related
-		level int
-		order []int // ugly trick to have reference sematics
+func html2md(r io.Reader, w io.Writer) {
+	z := html.NewTokenizer(r)
+	cxt := context{
+		tokenizer: z,
+		writer:    w,
+		parserMap: topHTML}
+
+	// To convert HTML we are looping `dispatch` on html tokenizer
+	// until there are no more HTML tokens.
+	for {
+		if err := dispatch(cxt); err != nil {
+			if err != errEndOfStream {
+				log.Fatal(err)
+			}
+			return
+		}
 	}
 }
 
+// Dispatch takes current HTML token and, depending on its type,
+// applies corresponding parser.
+// Parsers use `dispatch` corecursively to scan tokens further (until matching
+// closing tag).
+func dispatch(cxt context) error {
+	tt := cxt.tokenizer.Next()
+	cxt.token = cxt.tokenizer.Token()
+	switch tt {
+	case html.ErrorToken:
+		return errEndOfStream // FIXME: check tkz.Err()
+	case html.StartTagToken, html.TextToken:
+		tag := cxt.token.DataAtom
+		// NB. here we are relying on undocumented feature:
+		// `token.DataAtom == 0` for `TextToken`.
+		d, ok := cxt.parserMap[tag]
+		if ok { // skip unknown tokens
+			// create *new* context with parsers for child elements
+			newCxt := cxt
+			newCxt.parserMap = d.parserMap
+			return d.parser(newCxt)
+		}
+	case html.EndTagToken:
+		if cxt.token.DataAtom == cxt.parent {
+			return errEndOfContext
+		}
+	case html.SelfClosingTagToken:
+		// TODO: br
+	}
+	return nil
+}
+
+// context is a bunch of fields representing current parser state
+type context struct {
+	tokenizer *html.Tokenizer
+	writer    io.Writer
+	// current token
+	token html.Token
+	// map of parsers that we can apply within current token
+	parserMap parserMap
+	parent    atom.Atom
+	lst       struct {
+		// track indent-level of ul/ol list
+		level int
+		// index of current list item in ordered list
+		// FIXME?: using slice for single integer
+		//         is just an ugly trick to have reference sematics
+		order []int
+	}
+}
+
+// Just a couple of helper functions.
 func (cxt *context) WriteStrings(ss ...string) error {
 	for _, s := range ss {
 		if _, err := io.WriteString(cxt.writer, s); err != nil {
@@ -47,16 +105,23 @@ func (cxt *context) GetAttr(name string) (string, bool) {
 	return "", false
 }
 
-type parserFunc func(context) error
-type parserMap map[atom.Atom]elemParser
+// Here we are at the core of our converter.
 
+// elemParser is a main building block of converter.
+// It contains `parser` function that is able to parse current `tag`,
+// and a `parserMap` that contains parsers for nested elements.
 type elemParser struct {
 	tag       atom.Atom
 	parser    parserFunc
 	parserMap parserMap
 }
 
-// topHTML is like a BNF grammar of accepted document format.
+// parserFunc takes tokens out of context converts them and writes them
+// to the `context.writer`.
+type parserFunc func(context) error
+type parserMap map[atom.Atom]elemParser
+
+// topHTML is much like a BNF grammar describing accepted document format.
 // It is not a tree but a graph, hence it is initialized in `init()` is some
 // obscure manner.
 var topHTML = make(parserMap)
@@ -73,7 +138,7 @@ func init() {
 		{atom.Em, wrap("*", "*"), formattedText},
 		{atom.Span, wrap("", ""), formattedText},
 		{atom.Code, wrap("`", "`"), rawText},
-		{atom.Pre, wrap("\n```", "\n```"), rawText}}
+		{atom.Pre, wrap("\n```\n", "\n```\n"), rawText}}
 	fillMap(formattedText, formattedTextParsers)
 
 	textAndLinks := fillMap(
@@ -116,47 +181,7 @@ func fillMap(m parserMap, xs []elemParser) parserMap {
 	return m
 }
 
-func html2md(r io.Reader, w io.Writer) {
-	z := html.NewTokenizer(r)
-	cxt := context{
-		tokenizer: z,
-		writer:    w,
-		parserMap: topHTML}
-
-	for {
-		if err := dispatch(cxt); err != nil {
-			if err != errEndOfStream {
-				log.Fatal(err)
-			}
-			return
-		}
-	}
-}
-
-func dispatch(cxt context) error {
-	tt := cxt.tokenizer.Next()
-	cxt.token = cxt.tokenizer.Token()
-	switch tt {
-	case html.ErrorToken:
-		return errEndOfStream // FIXME: check tkz.Err()
-	case html.StartTagToken, html.TextToken:
-		tag := cxt.token.DataAtom
-		d, ok := cxt.parserMap[tag]
-		if ok {
-			newCxt := cxt
-			newCxt.parserMap = d.parserMap
-			return d.parser(newCxt)
-		}
-	case html.EndTagToken:
-		if cxt.token.DataAtom == cxt.parent {
-			return errEndOfContext
-		}
-	case html.SelfClosingTagToken:
-		// FIXME: br
-	default:
-	}
-	return nil
-}
+// Those below are parser combinators.
 
 func skip(cxt context) error {
 	_, err := goDeeper(&cxt)
@@ -224,9 +249,12 @@ func h1_2(subChar string) parserFunc {
 	}
 }
 
-// FIXME: `goDeeper` copies `cxt` just before it is copeid in `dispatch`
+// goDeeper calls `dispatch` in a loop until matching closing tag.
+// Returns converted nested elements in a bytes.Buffer.
 func goDeeper(cxt *context) (*bytes.Buffer, error) {
 	buf := new(bytes.Buffer)
+	// FIXME: do we really need to copy `cxt` just before it is copeid in
+	//        `dispatch`?
 	newCxt := *cxt
 	newCxt.writer = buf
 	newCxt.parent = cxt.token.DataAtom
