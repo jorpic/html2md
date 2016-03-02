@@ -84,28 +84,28 @@ func init() {
 	textAndLinksAndLists := make(parserMap)
 	listBullets := make(parserMap)
 	fillMap(textAndLinksAndLists,
-		append(formattedTextParsers,
-			elemParser{atom.A, anchor, formattedText},
-			elemParser{atom.Ul, list, listBullets},
-			elemParser{atom.Ol, list, listBullets}))
+		append(formattedTextParsers, []elemParser{
+			{atom.A, anchor, formattedText},
+			{atom.Ul, list, listBullets},
+			{atom.Ol, list, listBullets}}...))
 	fillMap(listBullets, []elemParser{
-		elemParser{atom.Ul, list, listBullets},
-		elemParser{atom.Ol, list, listBullets},
-		elemParser{atom.Li, listItem, textAndLinksAndLists}})
+		{atom.Ul, list, listBullets},
+		{atom.Ol, list, listBullets},
+		{atom.Li, listItem, textAndLinksAndLists}})
 
-	topHTMLParsers := append(formattedTextParsers,
-		elemParser{atom.Script, skip, nil},
-		elemParser{atom.Head, skip, nil},
-		elemParser{atom.A, anchor, formattedText},
-		elemParser{atom.H1, h1_2("="), textAndLinks},
-		elemParser{atom.H2, h1_2("-"), textAndLinks},
-		elemParser{atom.H3, wrap("\n### ", "\n"), textAndLinks},
-		elemParser{atom.H4, wrap("\n#### ", "\n"), textAndLinks},
-		elemParser{atom.H5, wrap("\n##### ", "\n"), textAndLinks},
-		elemParser{atom.P, wrap("\n", "\n"), textAndLinksAndLists},
-		elemParser{atom.Pre, wrap("\n```", "```\n"), rawText},
-		elemParser{atom.Ul, list, listBullets},
-		elemParser{atom.Ol, list, listBullets})
+	topHTMLParsers := append(formattedTextParsers, []elemParser{
+		{atom.Script, skip, nil},
+		{atom.Head, skip, nil},
+		{atom.A, anchor, formattedText},
+		{atom.H1, h1_2("="), textAndLinks},
+		{atom.H2, h1_2("-"), textAndLinks},
+		{atom.H3, wrap("\n### ", "\n"), textAndLinks},
+		{atom.H4, wrap("\n#### ", "\n"), textAndLinks},
+		{atom.H5, wrap("\n##### ", "\n"), textAndLinks},
+		{atom.P, wrap("\n", "\n"), textAndLinksAndLists},
+		{atom.Pre, wrap("\n```", "```\n"), rawText},
+		{atom.Ul, list, listBullets},
+		{atom.Ol, list, listBullets}}...)
 	fillMap(topHTML, topHTMLParsers)
 }
 
