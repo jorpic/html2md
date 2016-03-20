@@ -24,7 +24,7 @@ func html2md(r io.Reader, w io.Writer) {
 		writer:    w,
 		parserMap: topHTML}
 
-	// To convert HTML we are looping `dispatch` on html tokenizer
+	// To convert HTML we are looping `dispatch` on HTML tokenizer
 	// until there are no more HTML tokens.
 	for {
 		if err := dispatch(cxt); err != nil {
@@ -38,8 +38,7 @@ func html2md(r io.Reader, w io.Writer) {
 
 // Dispatch takes current HTML token and, depending on its type,
 // applies corresponding parser.
-// Parsers use `dispatch` corecursively to scan tokens further (until matching
-// closing tag).
+// Parsers use `dispatch` corecursively to scan tokens further.
 func dispatch(cxt context) error {
 	tt := cxt.tokenizer.Next()
 	cxt.token = cxt.tokenizer.Token()
@@ -67,7 +66,7 @@ func dispatch(cxt context) error {
 	return nil
 }
 
-// context is a bunch of fields representing current parser state
+// context is a bunch of fields representing current parser state.
 type context struct {
 	tokenizer *html.Tokenizer
 	writer    io.Writer
@@ -81,7 +80,7 @@ type context struct {
 		level int
 		// index of current list item in ordered list
 		// FIXME?: using slice for single integer
-		//         is just an ugly trick to have reference sematics
+		//         is just an ugly trick to have reference semantics
 		order []int
 	}
 }
@@ -107,8 +106,8 @@ func (cxt *context) GetAttr(name string) (string, bool) {
 
 // Here we are at the core of our converter.
 
-// elemParser is a main building block of converter.
-// It contains `parser` function that is able to parse current `tag`,
+// elemParser is the main building block of the converter.
+// It contains a `parser` function that is able to parse current `tag`,
 // and a `parserMap` that contains parsers for nested elements.
 type elemParser struct {
 	tag       atom.Atom
@@ -116,12 +115,12 @@ type elemParser struct {
 	parserMap parserMap
 }
 
-// parserFunc takes tokens out of context converts them and writes them
-// to the `context.writer`.
+// parserFunc takes tokens from context, converts and writes them
+// to `context.writer`.
 type parserFunc func(context) error
 type parserMap map[atom.Atom]elemParser
 
-// topHTML is much like a BNF grammar describing accepted document format.
+// topHTML is much like BNF grammar describing accepted document format.
 // It is not a tree but a graph, hence it is initialized in `init()` is some
 // obscure manner.
 var topHTML = make(parserMap)
@@ -214,7 +213,7 @@ func wrap(xx string, yy string) parserFunc {
 }
 
 func anchor(cxt context) error {
-	href, ok := cxt.GetAttr("href") // FIXME: inline?
+	href, ok := cxt.GetAttr("href")
 	if !ok {
 		return nil
 	}
@@ -249,8 +248,8 @@ func h1_2(subChar string) parserFunc {
 	}
 }
 
-// goDeeper calls `dispatch` in a loop until matching closing tag.
-// Returns converted nested elements in a bytes.Buffer.
+// goDeeper calls `dispatch` in a loop until matching closing tag found.
+// Returns converted nested elements in a `bytes.Buffer`.
 func goDeeper(cxt *context) (*bytes.Buffer, error) {
 	buf := new(bytes.Buffer)
 	// FIXME: do we really need to copy `cxt` just before it is copeid in
